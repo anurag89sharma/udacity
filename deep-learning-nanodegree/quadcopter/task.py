@@ -20,16 +20,18 @@ class Task():
 
         self.state_size = self.action_repeat * 6
         self.action_low = 0
-        self.action_high = 900
+        self.action_high = 50
         self.action_size = 4
+        self.max_velocity_z = 2
 
         # Goal
-        self.target_pos = target_pos if target_pos is not None else np.array([0., 0., 10.]) 
+        self.target_pos = target_pos if target_pos is not None else np.array([0., 0., 10.])
 
     def get_reward(self):
         """Uses current pose of sim to return reward."""
-        reward = 1.-.3*(abs(self.sim.pose[:3] - self.target_pos)).sum()
-        return reward
+        vx, vy, vz = self.sim.pose[0], self.sim.pose[1], self.sim.pose[2]
+        reward = 1.-.005 *(abs(self.sim.pose[:3] - self.target_pos)).sum() + - 0.05 * (vx**2 +  vy**2) + min(self.max_velocity_z, vz)
+        return np.tanh(reward)
 
     def step(self, rotor_speeds):
         """Uses action to obtain next state, reward, done."""
