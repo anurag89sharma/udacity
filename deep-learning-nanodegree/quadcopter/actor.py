@@ -32,19 +32,30 @@ class Actor:
         states = layers.Input(shape=(self.state_size,), name='states')
 
         # Add hidden layers
-        net = layers.Dense(units=400, kernel_regularizer=regularizers.l2(1e-6))(states)
+        net = layers.Dense(units=64, kernel_regularizer=regularizers.l2(0.01))(states)
         net = BatchNormalization()(net)
         net = layers.Activation("relu")(net)
+        net = layers.Dropout(0.2)(net)
         
-        net = layers.Dense(units=300, kernel_regularizer=regularizers.l2(1e-6))(net)
+        #net = layers.Dense(units=64, kernel_regularizer=regularizers.l2(0.01))(net)
+        #net = BatchNormalization()(net)
+        #net = layers.Activation("relu")(net)
+        
+        net = layers.Dense(units=128, kernel_regularizer=regularizers.l2(0.01))(net)
         net = BatchNormalization()(net)
         net = layers.Activation("relu")(net)
+        net = layers.Dropout(0.2)(net)
+        
+        net = layers.Dense(units=64, kernel_regularizer=regularizers.l2(0.01))(net)
+        net = BatchNormalization()(net)
+        net = layers.Activation("relu")(net)
+        net = layers.Dropout(0.2)(net)
 
         # Try different layer sizes, activations, add batch normalization, regularizers, etc.
 
         # Add final output layer with sigmoid activation
         raw_actions = layers.Dense(units=self.action_size, activation='sigmoid', name='raw_actions',
-                                   kernel_initializer=layers.initializers.RandomUniform(minval=-0.005, maxval=0.005))(net)
+                                   kernel_initializer=layers.initializers.RandomUniform(minval=-1.0, maxval=1.0))(net)
 
         # Scale [0, 1] output for each action dimension to proper range
         actions = layers.Lambda(lambda x: (x * self.action_range) + self.action_low,
