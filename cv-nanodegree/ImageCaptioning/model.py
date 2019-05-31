@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.models as models
+from torch.autograd import Variable
 
 
 class EncoderCNN(nn.Module):
@@ -30,9 +31,8 @@ class DecoderRNN(nn.Module):
         
         self.num_layers = num_layers
         self.hidden_dim = hidden_size
-        #self.batch_size = batch_size
         self.word_embeddings = nn.Embedding(vocab_size, embed_size)
-        self.lstm = nn.LSTM(embed_size, self.hidden_dim, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(embed_size, self.hidden_dim, num_layers, batch_first=True,dropout=drop_prob)
         self.fc = nn.Linear(self.hidden_dim, vocab_size)
         #self.hidden = self.init_hidden(batch_size)
         #self.hidden = None
@@ -42,21 +42,22 @@ class DecoderRNN(nn.Module):
            none because the hidden state is formed based on perviously seen data.
            So, this function defines a hidden state with all zeroes and of a specified size.'''
         # The axes dimensions are (n_layers, batch_size, hidden_dim)
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        return (torch.zeros(self.num_layers, batch_size, self.hidden_dim), 
-                torch.zeros(self.num_layers, batch_size, self.hidden_dim))
+        hidden = Variable(next(self.parameters()).data.new(self.num_layers, batch_size, self.hidden_dim), requires_grad=False)
+        cell = Variable(next(self.parameters()).data.new(self.num_layers, batch_size, self.hidden_dim), requires_grad=False)
+        return hidden.zero_(), cell.zero_()
         
     def forward(self, features, captions):
         batch_size = features.shape[0]
-        self.hidden = self.init_hidden(batch_size)
+        #self.hidden = self.init_hidden(batch_size)
         cap_embedding = self.word_embeddings(captions[:,:-1])
         embeddings = torch.cat((features.unsqueeze(1), cap_embedding), 1)
         
         # get the output and hidden state by passing the lstm over our word embeddings
         # the lstm takes in our embeddings and hiddent state
+        
         #lstm_out, self.hidden = self.lstm(embeddings, self.hidden)
         lstm_out, self.hidden = self.lstm(embeddings)
-        print("length - {} shape - {}".format(len(self.hidden), self.hidden[0].shape))
+        #print("length - {} shape - {}".format(len(self.hidden), self.hidden[0].shape))
         
         outputs = self.fc(lstm_out)
         #outputs = F.log_softmax(tag_outputs, dim=1)
@@ -70,7 +71,7 @@ class DecoderRNN(nn.Module):
         #hidden = self.init_hidden(batch_size) # Get initial hidden state of the LSTM
         
         while True:
-            lstm_out, hidden = self.lstm(inputs) # lstm_out shape : (1, 1, hidden_size)
+            lstm_out, hidden = self.lstm(inputs, hidden) # lstm_out shape : (1, 1, hidden_size)
             outputs = self.fc(lstm_out)  # outputs shape : (1, 1, vocab_size)
             outputs = outputs.squeeze(1) # outputs shape : (1, vocab_size)
             _, max_indice = torch.max(outputs, dim=1) # predict the most likely next word, max_indice shape : (1)
